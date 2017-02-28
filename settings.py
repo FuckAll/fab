@@ -11,3 +11,14 @@ LOG_DIR = 'log'
 
 # github repo
 MEI_OPS="git@github.com:wothing/17mei-ops.git"
+
+
+# docker image
+containers = {
+    'redis': 'daocloud.io/izgnod/redis:latest',
+    'postgres': 'daocloud.io/izgnod/postgres:latest',
+    'etcd': 'daocloud.io/izgnod/etcd:latest'
+}
+
+
+# env

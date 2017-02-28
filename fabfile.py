@@ -1,9 +1,10 @@
-from fabric.api import env, task
+from fabric.api import env, task, output
 from fabric.api import run
 
 import site_config
 # from settings import *
 from develop import *
+from docker_local import *
 
 
 # ssh config
@@ -14,7 +15,6 @@ env.port = 22
 # roledefs
 env.roledefs = site_config.ROLEDEFS
 
-
 # nginx dev
 @task
 def host_type():
@@ -24,7 +24,7 @@ def host_type():
 @task
 def all_mkdir():
     """[SA] 创建所有需要的目录"""
-    for d in [BASE_PROD_DIR, BASE_PREPARE_DIR, NGINX_CONF_DIR, NGINX_CONF_PREPARE_DIR, NGINX_CONF_PROD_DIR, LOG_DIR]:
+    for d in [BASE_PROD_DIR, BASE_PREPARE_DIR, LOG_DIR]:
         run('mkdir -p %s' % d)
 
 
