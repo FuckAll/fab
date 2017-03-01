@@ -5,7 +5,6 @@ from settings import containers
 from fabric.contrib.console import confirm
 
 
-
 client = docker.from_env()
 
 
@@ -64,6 +63,28 @@ def start_etcd(port=False):
     if c.status != 'created':
         print(red('start etcd faild!'))
 
+
+# @task
+# def start_nsq(port=False):
+#     # docker
+#     # run - -name
+#     # nsqd - p
+#     # 4150: 4150 - p
+#     # 4151: 4151 \
+#     #         nsqio / nsq / nsqd \
+#     #         - -broadcast - address = 172.17
+#     # .42
+#     # .1 \
+#     # - -lookupd - tcp - address = 172.17
+#     # .42
+#     # .1: 4160
+#
+#     command = "/nsqd"
+#     ports = {}
+#     if port:
+#         ports = {'4150/tcp': 4150, '4151/tcp': 4151}
+#
+#     c = client.containers.run(containers['etcd'], detach=True, environment=env, ports=ports)
 
 @task
 def docker_list():

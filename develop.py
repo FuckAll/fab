@@ -265,6 +265,7 @@ def start_workspace():
     """ [local] 启动一个完整可用的测试环境 example: fab start_workspace"""
     # 0. 关闭所有的本地docker
     clean_container_force()
+
     # 1. 启动数据库
     start_pgsql(True)
     sleep(5)
