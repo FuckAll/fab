@@ -33,7 +33,7 @@ def start_redis(port=False):
 def start_pgsql(port=False):
     env = {
         'POSTGRES_DB': 'butler',
-        'POSTGRES_PASSWORD': 'wothing',
+        'POSTGRES_PASSWORD': '',
     }
 
     ports = {}
