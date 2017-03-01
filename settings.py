@@ -14,7 +14,7 @@ LOG_DIR = 'log'
 
 # github repo
 MEI_OPS = "git@github.com:wothing/17mei-ops.git"
-FABENB = {}
+FABENV = {}
 
 
 # docker image
@@ -29,6 +29,6 @@ containers = {
 with lcd('~'):
     f = open(join(environ.get('HOME'), ".fab"))
     s = f.read()
-    FABENB = json.loads(s)
+    FABENV = json.loads(s)
     f.close()
 

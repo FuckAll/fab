@@ -3,6 +3,7 @@ from fabric.api import task, show, local
 from fabric.colors import red, green
 from settings import containers
 from fabric.contrib.console import confirm
+import socket
 
 
 client = docker.from_env()
@@ -10,6 +11,11 @@ client = docker.from_env()
 
 @task
 def start_redis(port=False):
+    p = is_open(port='6379', p=False)
+    if p:
+        print(green('redis already start ...'))
+        return True
+
     env = {
         'REDIS_PASS': 'wothing',
         'REDIS_DIR': '/data',
@@ -26,10 +32,16 @@ def start_redis(port=False):
     if container.name == '':
         print(red('start redis faild!'))
     print(green('redis complete!'))
+    return True
 
 
 @task
 def start_pgsql(port=False):
+    p = is_open(port='5432', p=False)
+    if p:
+        print(green('postgresql already start ...'))
+        return True
+
     env = {
         'POSTGRES_DB': 'butler',
         'POSTGRES_PASSWORD': '',
@@ -40,8 +52,6 @@ def start_pgsql(port=False):
         ports = {'5432/tcp': 5432}
 
     print(green('start postgresql ...'))
-
-    # TODO 如何捕捉异常，例如：端口的占用
     with show('stdout', 'stderr', 'debug'):
         container = client.containers.run(containers['postgres'], detach=True, environment=env,
                                           ports=ports)
@@ -51,6 +61,11 @@ def start_pgsql(port=False):
 
 @task
 def start_etcd(port=False):
+    p = is_open(port='2379', p=False)
+    if p:
+        print(green('etcd already start ...'))
+        return True
+
     env = {
     }
 
@@ -62,6 +77,7 @@ def start_etcd(port=False):
     c = client.containers.run(containers['etcd'], detach=True, environment=env, ports=ports)
     if c.status != 'created':
         print(red('start etcd faild!'))
+    return True
 
 
 # @task
@@ -108,7 +124,6 @@ def stop_docker():
     for c in client.containers.list(all=True):
         print(green('stop container: %s' % c.name))
         cg = client.containers.get(c.id)
-        # timeout 100
         cg.stop(timeout=100)
 
 
@@ -144,3 +159,17 @@ def test(count=10):
 def build_docker_image():
     client.images.build()
 
+
+@task
+def is_open(port, ip='127.0.0.1', p=True):
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        s.connect((ip, int(port)))
+        s.shutdown(2)
+        if p:
+            print('%s is open' % port)
+        return True
+    except:
+        if p:
+            print('%s is down' % port)
+        return False
