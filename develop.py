@@ -11,6 +11,7 @@ import asyncio
 import asyncpg
 import etcd
 
+
 @task
 @hosts(ROLEDEFS['dev'])
 def dev_nginx():
@@ -43,8 +44,10 @@ def init_postgresql():
                 if ".sql" in f:
                     sql = root + '/' + f
                     print(green('execute : %s' % sql))
+
                     async def run():
-                        conn = await asyncpg.connect(user='postgres', password='wothing', database='butler', host='127.0.0.1', port='5432')
+                        conn = await asyncpg.connect(user='postgres', password='wothing', database='butler',
+                                                     host='127.0.0.1', port='5432')
                         await conn.execute(open(sql).read())
                         await conn.close()
 
@@ -58,7 +61,8 @@ def pg_extension():
     extensions = ['CREATE EXTENSION IF NOT EXISTS "pgcrypto"']
 
     async def run():
-        conn = await asyncpg.connect(user='postgres', password='wothing', database='butler', host='127.0.0.1', port='5432')
+        conn = await asyncpg.connect(user='postgres', password='wothing', database='butler', host='127.0.0.1',
+                                     port='5432')
         for e in extensions:
             await conn.execute(e)
         await conn.close()
@@ -118,6 +122,7 @@ def stop_all_micro():
     with hide('running'):
         local("ps -ef | grep build/ | grep -v grep  | awk '{print $2}' | xargs kill -9", capture=True)
 
+
 @task
 def force_rebuild_micro():
     with hide('running'):
@@ -134,24 +139,27 @@ def build_gateway():
             local('if [[ ! -d build ]]; then mkdir ./build; fi')
             local('if [[ ! -d logs ]]; then mkdir ./logs; fi')
 
-            # build
-            print(green('build && restart appway and interway micro service...'))
-            with lcd(join(FABENV['project'], 'gateway/appway')):
-                local('go build -v -i -o %s' % join(FABENV['project'], 'build', 'appway'))
-            with lcd(join(FABENV['project'], 'gateway/interway')):
-                local('go build -v -i -o %s' % join(FABENV['project'], 'build', 'interway'))
+            c = dir_change('gateway')
+            if c:
+                # build
+                print(green('build && restart appway and interway micro service...'))
+                with lcd(join(FABENV['project'], 'gateway/appway')):
+                    local('go build -v -i -o %s' % join(FABENV['project'], 'build', 'appway'))
+                with lcd(join(FABENV['project'], 'gateway/interway')):
+                    local('go build -v -i -o %s' % join(FABENV['project'], 'build', 'interway'))
 
-            s = micro_status('appway', False)
-            if s:
+                # restart
                 micro_restart('appway')
-            else:
-                micro_start('appway')
-
-            s = micro_status('interway', False)
-            if s:
                 micro_restart('interway')
+
             else:
-                micro_start('interway')
+                s = micro_status('appway', False)
+                if not s:
+                    micro_start('appway')
+
+                s = micro_status('interway', False)
+                if not s:
+                    micro_restart('interway')
 
 
 @task
@@ -271,10 +279,7 @@ def start_workspace():
     # 3. 启动redis
     start_redis(True)
 
-
     # 4. 启动nsq
 
     # 4. 启动业务
     start_all_micro()
-
-

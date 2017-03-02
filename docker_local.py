@@ -1,9 +1,10 @@
 import docker
 from fabric.api import task, show, local
 from fabric.colors import red, green
-from settings import containers
+from settings import containers, FABENV
 from fabric.contrib.console import confirm
 import socket
+from os.path import join
 
 
 client = docker.from_env()
@@ -156,11 +157,6 @@ def test(count=10):
 
 
 @task
-def build_docker_image():
-    client.images.build()
-
-
-@task
 def is_open(port, ip='127.0.0.1', p=True):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
@@ -173,3 +169,37 @@ def is_open(port, ip='127.0.0.1', p=True):
         if p:
             print('%s is down' % port)
         return False
+
+
+@task
+def build_docker_image(micro='mall'):
+    p = join(FABENV['project'], 'linux_build')
+    fname = micro + '-Dockerfile'
+    # TODO 这个地方要做一些准备, 例如标签如何打，如何统一命名等
+    print(client.images.build(path=p, dockerfile=fname, tag='test:lates'))
+
+
+@task
+def create_etcd(port=False):
+    p = is_open(port='2379', p=False)
+    if p:
+        print(green('etcd already start ...'))
+        return True
+
+    env = {
+    }
+
+    ports = {}
+    if port:
+        ports = {'2379/tcp': 2379, '4001/tcp': 4001}
+
+    print(green('start etcd ...'))
+    c = client.containers.create(containers['etcd'], detach=True, environment=env, ports=ports)
+    print(c.stats)
+    # c.i    # c = client.containers.run(containers['etcd'], detach=True, environment=env, ports=ports)
+    # if c.status != 'created':
+    #     print(red('start etcd faild!'))
+    # return True
+
+
+
