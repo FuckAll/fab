@@ -3,6 +3,8 @@ import json
 from os.path import join
 from os import environ
 from fabric.api import lcd
+from os.path import isdir
+from os import listdir
 
 # file need to create
 BASE_PROD_DIR = '/17mei/prod/'
@@ -32,3 +34,13 @@ with lcd('~'):
     FABENV = json.loads(s)
     f.close()
 
+
+def all_project():
+    onlydir = [f for f in listdir(FABENV['project']) if isdir(join(FABENV['project'], f)) and f not in
+               FABENV['exclude']]
+
+    # remove gateway insert appway and interway
+    onlydir.remove('gateway')
+    onlydir.append('appway')
+    onlydir.append('interway')
+    return onlydir

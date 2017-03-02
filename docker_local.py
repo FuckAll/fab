@@ -1,21 +1,23 @@
 import docker
-from fabric.api import task, show, local
+from fabric.api import task, show, local, lcd
 from fabric.colors import red, green
 from settings import containers, FABENV
 from fabric.contrib.console import confirm
 import socket
 from os.path import join
-
+from settings import all_project
+import time
 
 client = docker.from_env()
 
 
 @task
-def start_redis(port=False):
-    p = is_open(port='6379', p=False)
-    if p:
-        print(green('redis already start ...'))
-        return True
+def start_redis(port, network='', version=''):
+    if port:
+        p = is_open(port='6379', p=False)
+        if p:
+            print(green('redis already start ...'))
+            return False
 
     env = {
         'REDIS_PASS': 'wothing',
@@ -28,20 +30,36 @@ def start_redis(port=False):
         ports = {'6379/tcp': 6379}
 
     print(green('start redis ...'))
-    with show('stdout', 'stderr', 'debug'):
-        container = client.containers.run(containers['redis'], detach=True, environment=env, ports=ports)
-    if container.name == '':
-        print(red('start redis faild!'))
-    print(green('redis complete!'))
-    return True
+    if not network:
+        with show('stdout', 'stderr', 'debug'):
+            container = client.containers.run(containers['redis'], detach=True, environment=env, ports=ports)
+        if not container.name:
+            print(red('start redis faild!'))
+            return
+        print(green('redis complete!'))
+        return 'new'
+    else:
+        if not version:
+            print(red('need version'))
+            return False
+
+        with show('stdout', 'stderr', 'debug'):
+            networks = [FABENV['bridge']]
+            name = 'redis_' + version
+            container = client.containers.run(containers['redis'], detach=True, environment=env, ports=ports, name=name,
+                                              networks=networks)
+        if not container.name:
+            print(red('start redis faild!'))
+            return
 
 
 @task
-def start_pgsql(port=False):
-    p = is_open(port='5432', p=False)
-    if p:
-        print(green('postgresql already start ...'))
-        return True
+def start_pgsql(port, network='', version=''):
+    if port:
+        p = is_open(port='5432', p=False)
+        if p:
+            print(green('postgresql already start ...'))
+            return 'old'
 
     env = {
         'POSTGRES_DB': 'butler',
@@ -53,19 +71,37 @@ def start_pgsql(port=False):
         ports = {'5432/tcp': 5432}
 
     print(green('start postgresql ...'))
-    with show('stdout', 'stderr', 'debug'):
-        container = client.containers.run(containers['postgres'], detach=True, environment=env,
-                                          ports=ports)
-    if container.name == '':
-        print(red('start postgresql faild!'))
+    if not network:
+        with show('stdout', 'stderr', 'debug'):
+            container = client.containers.run(containers['postgres'], detach=True, environment=env,
+                                              ports=ports)
+            if not container.name:
+                print(red('start postgresql faild!'))
+                return
+            print(green('postgresql complete!'))
+            return 'new'
+    else:
+        if not version:
+            print(red('need version'))
+            return
+
+        with show('stdout', 'stderr', 'debug'):
+            networks = [FABENV['bridge']]
+            name = 'postgresql_' + version
+            container = client.containers.run(containers['postgres'], detach=True, environment=env, name=name,
+                                              ports=ports, networks=networks)
+            if not container.name:
+                print(red('start postgresql faild!'))
+                return
 
 
 @task
-def start_etcd(port=False):
-    p = is_open(port='2379', p=False)
-    if p:
-        print(green('etcd already start ...'))
-        return True
+def start_etcd(port, network='', version=''):
+    if port:
+        p = is_open(port='2379', p=False)
+        if p:
+            print(green('etcd already start ...'))
+            return 'old'
 
     env = {
     }
@@ -75,33 +111,25 @@ def start_etcd(port=False):
         ports = {'2379/tcp': 2379, '4001/tcp': 4001}
 
     print(green('start etcd ...'))
-    c = client.containers.run(containers['etcd'], detach=True, environment=env, ports=ports)
-    if c.status != 'created':
-        print(red('start etcd faild!'))
-    return True
+    if not network:
+        c = client.containers.run(containers['etcd'], detach=True, environment=env, ports=ports)
+        if c.status != 'created':
+            print(red('start etcd faild!'))
+            return
+        print(green('etcd complete!'))
+        return 'new'
+    else:
+        if not version:
+            print(red('need version'))
+            return
+        networks = [FABENV['bridge']]
+        name = 'etcd_' + version
+        c = client.containers.run(containers['etcd'], detach=True, environment=env, ports=ports, networks=networks,
+                                  name=name)
+        if c.status != 'created':
+            print(red('start etcd faild!'))
+            return
 
-
-# @task
-# def start_nsq(port=False):
-#     # docker
-#     # run - -name
-#     # nsqd - p
-#     # 4150: 4150 - p
-#     # 4151: 4151 \
-#     #         nsqio / nsq / nsqd \
-#     #         - -broadcast - address = 172.17
-#     # .42
-#     # .1 \
-#     # - -lookupd - tcp - address = 172.17
-#     # .42
-#     # .1: 4160
-#
-#     command = "/nsqd"
-#     ports = {}
-#     if port:
-#         ports = {'4150/tcp': 4150, '4151/tcp': 4151}
-#
-#     c = client.containers.run(containers['etcd'], detach=True, environment=env, ports=ports)
 
 @task
 def docker_list():
@@ -152,8 +180,9 @@ def start_all(port=False):
 
 @task
 def test(count=10):
-    for x in range(20):
-        start_etcd()
+    e = network_exist('test', True)
+    if not e:
+        create_network('test', True)
 
 
 @task
@@ -172,34 +201,130 @@ def is_open(port, ip='127.0.0.1', p=True):
 
 
 @task
-def build_docker_image(micro='mall'):
+def build_docker_image(micro, tag):
+    if (not micro) or (not tag):
+        print(red('you need micro name and version !'))
+        return False
+
     p = join(FABENV['project'], 'linux_build')
     fname = micro + '-Dockerfile'
-    # TODO 这个地方要做一些准备, 例如标签如何打，如何统一命名等
-    print(client.images.build(path=p, dockerfile=fname, tag='test:lates'))
+    tag = FABENV['registry'] + '/' + FABENV['project_name'] + '/' + micro + ':' + tag
+    i = client.images.build(path=p, dockerfile=fname, tag=tag)
+    if not i.tags:
+        return False
+    else:
+        return True
 
 
 @task
-def create_etcd(port=False):
-    p = is_open(port='2379', p=False)
-    if p:
-        print(green('etcd already start ...'))
+def project_test(version):
+    """[local] 使用docker进行集成测试 example: fab project_test:0.1"""
+    # network
+    create_network(FABENV['bridge'], False)
+
+    # build
+    print(green('building test image ...'))
+    p = join(FABENV['project'], 'linux_build')
+    fname = 'test-Dockerfile'
+    tag = 'test:latest'
+    i = client.images.build(path=p, dockerfile=fname, tag=tag)
+
+    if i.tags:
+        # run
+        networks = [FABENV['bridge']]
+        database = "database=postgresql_" + version
+        appway = "appway=appway_" + version
+        env = ["TestEnv=CI", "CiTracer=other", database, appway]
+        name = 'test_' + version
+        client.containers.run(image="test:latest", detach=True, networks=networks, name=name, environment=env)
+
+
+@task
+def project_docker(version):
+    """[local] 将所有的微服务用docker跑起来 fab project_test:0.1"""
+    if not version:
+        print(red('you need version !'))
+        return
+
+    nf = time.strftime("%m%d%H%M", time.localtime(time.time()))
+    tag = version + '_' + nf
+    for a in all_project():
+        print(green('building %s ...' % a))
+        b = build_docker_image(a, tag)
+        if b:
+            continue
+        else:
+            print(red('build image %s error!' % a))
+
+    docker_run(version)
+
+
+@task
+def docker_run(version):
+    # network
+    create_network(FABENV['bridge'], False)
+    # run
+    networks = [FABENV['bridge']]
+
+    for d in all_project():
+        name = d + '-' + version
+        print(green('running container %s ...' % name))
+        image = FABENV['registry'] + '/' + FABENV['project_name'] + '/' + d + ':' + version
+        client.containers.run(image=image, detach=True, networks=networks, name=name)
+
+
+def create_network(network, p=True):
+    if not network:
+        print(red('you need network name !'))
+        return
+
+    n = client.networks.create(network, driver="bridge")
+    if n.name:
+        if p:
+            print(green('create bridge network %s succeed!' % network))
         return True
-
-    env = {
-    }
-
-    ports = {}
-    if port:
-        ports = {'2379/tcp': 2379, '4001/tcp': 4001}
-
-    print(green('start etcd ...'))
-    c = client.containers.create(containers['etcd'], detach=True, environment=env, ports=ports)
-    print(c.stats)
-    # c.i    # c = client.containers.run(containers['etcd'], detach=True, environment=env, ports=ports)
-    # if c.status != 'created':
-    #     print(red('start etcd faild!'))
-    # return True
+    else:
+        if p:
+            print(green('create bridge network %s false!' % network))
+        return False
 
 
+def delete_netwrok(network, p=True):
+    n = client.networks.list()
+    for i in n:
+        if i.name == network:
+            if p:
+                print(green('network %s removed!' % network))
+            i.remove()
 
+
+def network_exist(network, p=True):
+    n = client.networks.list()
+    for i in n:
+        if i.name == network:
+            if p:
+                print(green('network %s exist!' % network))
+                return True
+    return False
+
+
+@task
+def push_image(micro, version):
+    """[local] 推送镜像到阿里云 example: fab push_image:master,v1.1_03021623"""
+    if (not micro) or (not version):
+        print(green('need micro and version'))
+        return
+    repository = FABENV['registry'] + '/' + FABENV['project_name'] + '/' + micro
+    print(client.images.push(repository=repository, tag=version))
+
+
+@task
+def clean_docker_version(version):
+    """[local] 停止并删除指定版本的镜像 example: fab clean_docker_version:v1.1_03021630"""
+    if not version:
+        print(green('need version'))
+        return
+    try:
+        local("docker stop $(docker ps -a  | grep '%s' | awk '{print $1}')" % version)
+    except:
+        local("docker rmi -f $(docker images -a | grep '%s' | awk '{print $3}')" % version)

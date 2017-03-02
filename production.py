@@ -1,10 +1,8 @@
-
 from fabric.api import task, lcd, local, hide
 from fabric.colors import green
 from settings import FABENV
 from os import listdir
 from os.path import isdir, join
-
 
 dockerfile = '''FROM daocloud.io/izgnod/alpine:latest
 COPY %s /%s
@@ -16,6 +14,10 @@ COPY %s /%s
 COPY 17mei.crt /17mei.crt
 COPY 17mei.key /17mei.key
 CMD exec /%s -etcd $ETCD -h $HOSTNAME -p $P
+'''
+test_dockerfile = '''FROM daocloud.io/izgnod/alpine:latest
+COPY test /test
+CMD exec /test
 '''
 
 @task
@@ -75,6 +77,18 @@ def create_gateway_dockerfile():
     with hide('running', 'stdout'):
         for g in gateway:
             content = gateway_dockerfile % (g, g, g)
-            f = open(join(FABENV['project'], 'linux_build', g+'-Dockerfile'), 'w')
+            f = open(join(FABENV['project'], 'linux_build', g + '-Dockerfile'), 'w')
             f.write(content)
+            f.close()
+
+
+@task
+def linux_build_test():
+    with hide('running', 'stdout'):
+        print(green('build linux version test ...'))
+        with lcd(FABENV['test_dir']):
+            local('GOARCH=amd64 GOOS=linux CGO_ENABLED=0 go test -c -o %s' % join(FABENV['project'], 'linux_build',
+                                                                                  'test'))
+            f = open(join(FABENV['project'], 'linux_build', 'test-Dockerfile'), 'w')
+            f.write(test_dockerfile)
             f.close()

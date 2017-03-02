@@ -38,21 +38,22 @@ def init_postgresql():
     """ [local] 初始化本地数据库（导入表等）"""
     pg_extension()
     with lcd(join(FABENV['project'], 'sql')):
-        path = local('pwd', capture=True)
-        for root, dirs, filenames in walk(path):
-            for f in filenames:
-                if ".sql" in f:
-                    sql = root + '/' + f
-                    print(green('execute : %s' % sql))
+        with hide('running'):
+            path = local('pwd', capture=True)
+            for root, dirs, filenames in walk(path):
+                for f in filenames:
+                    if ".sql" in f:
+                        sql = root + '/' + f
+                        print(green('execute : %s' % sql))
 
-                    async def run():
-                        conn = await asyncpg.connect(user='postgres', password='wothing', database='butler',
-                                                     host='127.0.0.1', port='5432')
-                        await conn.execute(open(sql).read())
-                        await conn.close()
+                        async def run():
+                            conn = await asyncpg.connect(user='postgres', password='wothing', database='butler',
+                                                         host='127.0.0.1', port='5432')
+                            await conn.execute(open(sql).read())
+                            await conn.close()
 
-                    loop = asyncio.get_event_loop()
-                    loop.run_until_complete(run())
+                        loop = asyncio.get_event_loop()
+                        loop.run_until_complete(run())
 
 
 @task
@@ -267,17 +268,18 @@ def md5forfile(file):
 @task
 def start_workspace():
     # 1. 启动数据库
-    if not start_pgsql(True):
+    if start_pgsql(port=True) == 'new':
         sleep(10)
         init_postgresql()
 
     # 2. 启动etcd
 
-    if not start_etcd(True):
+    if start_etcd(port=True) == 'new':
         sleep(3)
         init_etcd()
+
     # 3. 启动redis
-    start_redis(True)
+    start_redis(port=True)
 
     # 4. 启动nsq
 
