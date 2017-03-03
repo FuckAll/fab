@@ -1,7 +1,7 @@
 from fabric.api import task, hosts, run, cd, lcd, hide, local
 from site_config import ROLEDEFS
 from settings import BASE_PREPARE_DIR, MEI_OPS, FABENV
-from os import listdir, walk
+from os import listdir, walk, system
 from os.path import isfile, join, isdir
 from fabric.colors import red, green
 from hashlib import md5
@@ -114,6 +114,7 @@ def start_all_micro():
                 build_gateway()
             else:
                 build(d)
+    iterm_applescript()
 
 
 @task
@@ -163,7 +164,6 @@ def build_gateway():
                     micro_restart('interway')
 
 
-@task
 def build(micro='mall'):
     """ [local] 构建并且重启micro example: fab build:mall"""
     with hide('running'):
@@ -188,7 +188,6 @@ def build(micro='mall'):
             micro_start(micro)
 
 
-@task
 def micro_restart(micro='mall'):
     """ [local] 重启micro example: fab micro_restart:mall"""
     with hide('running'):
@@ -197,7 +196,6 @@ def micro_restart(micro='mall'):
             local('nohup build/%s >> logs/debug.log 2>&1 &' % micro)
 
 
-@task
 def micro_start(micro='mall'):
     """ [local] 启动micro example: fab micro_start:mall"""
     with hide('running'):
@@ -205,7 +203,6 @@ def micro_start(micro='mall'):
             local('nohup build/%s >> logs/debug.log 2>&1 &' % micro)
 
 
-@task
 def micro_status(micro='mall', p=True):
     """ [local] 查看micro运行状态 example: fab micro_status:mall"""
     with hide('running'):
@@ -273,7 +270,6 @@ def start_workspace():
         init_postgresql()
 
     # 2. 启动etcd
-
     if start_etcd(port=True) == 'new':
         sleep(3)
         init_etcd()
@@ -281,7 +277,33 @@ def start_workspace():
     # 3. 启动redis
     start_redis(port=True)
 
-    # 4. 启动nsq
-
     # 4. 启动业务
     start_all_micro()
+
+    # 5. iterm
+    iterm_applescript()
+
+
+@task
+def iterm_applescript():
+    cmd = """
+    osascript \
+            -e 'tell application "iTerm"'\
+            -e 'set cmd to "tail -f %s"' \
+            -e 'set len to count of sessions of current tab of current window' \
+            -e 'if len ≤ 1 then' \
+            -e 'tell current session of current tab of current window' \
+            -e 'split horizontally with default profile command cmd' \
+            -e 'end tell' \
+            -e 'else' \
+            -e 'tell session 2 of current tab of current window' \
+            -e 'close' \
+            -e 'end tell' \
+            -e 'tell current session of current tab of current window' \
+            -e 'split horizontally with default profile command cmd' \
+            -e 'end tell' \
+            -e 'end if' \
+            -e 'end tell' \
+        """ % join(FABENV['project'], 'logs', 'debug.log')
+    with hide('running'):
+        local(cmd)

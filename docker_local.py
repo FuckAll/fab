@@ -180,9 +180,11 @@ def start_all(port=False):
 
 @task
 def test(count=10):
-    e = network_exist('test', True)
-    if not e:
-        create_network('test', True)
+
+    c = client.containers.run(containers['redis'], detach=True, networks=['ci'], network_mode='bridge')
+
+    # nl = client.networks.list(names='test')
+    # for n in nl:
 
 
 @task
@@ -328,3 +330,28 @@ def clean_docker_version(version):
         local("docker stop $(docker ps -a  | grep '%s' | awk '{print $1}')" % version)
     except:
         local("docker rmi -f $(docker images -a | grep '%s' | awk '{print $3}')" % version)
+
+
+@task
+def postgresql_init(version):
+    """[local] 初始化postgresql"""
+    # init file
+    f = open(join(FABENV['project'], 'linux_build', 'init_postgresql.sh'), 'w')
+    cmd = '`which psql` -h postgresql_' + version + ' -p 5432' + ' -U postgres' + ' -d ' + FABENV['project_name']
+    cat = '''#!/bin/sh
+all=`find sql -type f -iname "*.sql" | sort -t "/" -k 2,2`
+for a in $all
+do
+%s -f $a
+done
+''' % cmd
+    f.write(cat)
+    f.close()
+
+    # docker
+    networks = [FABENV['bridge']]
+    command = "sh init_postgresql.sh"
+    volumes = {FABENV['sql_dir']: {'bind': '/sql', 'mode': 'rw'},
+               join(FABENV['project'], 'linux_build', 'init_postgresql.sh'):
+                   {'bind': '/init_postgresql.sh', 'mode': 'ro'}}
+    container = client.containers.run(containers['postgres'], volumes=volumes, networks=networks)
