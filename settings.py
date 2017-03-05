@@ -2,9 +2,11 @@
 import json
 from os.path import join
 from os import environ
-from fabric.api import lcd
+from fabric.api import lcd, task, local
 from os.path import isdir
 from os import listdir
+import yaml
+import re
 
 # file need to create
 BASE_PROD_DIR = '/17mei/prod/'
@@ -17,7 +19,7 @@ LOG_DIR = 'log'
 # github repo
 MEI_OPS = "git@github.com:wothing/17mei-ops.git"
 FABENV = {}
-
+yamlconfig = {}
 
 # docker image
 containers = {
@@ -26,13 +28,37 @@ containers = {
     'etcd': 'daocloud.io/izgnod/etcd:latest'
 }
 
+# @task
+# def yaml_test():
+# # env
+# with lcd('~'):
+#
+f = open(join(environ.get('HOME'), ".fab.yaml"), 'r')
+y = yaml.load(f)
+yamlconfig = y
+    # for service in yamlconfig['prod']['image']['build']['args']:
+    #     print(service)
+    # print(yamlconfig['prod']['image']['build']['cmd'])
+    # # pattern = re.compile(r'\{\{\w*\}\}')
+    # # match = pattern.match(yamlconfig['prod']['image']['dockerfile'][0])
+    # print(yamlconfig['prod']['image']['dockerfile']['cmd'])
+    # print(yamlconfig['env']['version'])
+    # print(yamlconfig['env']['services'])
 
-# env
-with lcd('~'):
-    f = open(join(environ.get('HOME'), ".fab"))
-    s = f.read()
-    FABENV = json.loads(s)
-    f.close()
+    # mat = re.match(r'&\w+', yamlconfig['prod']['image']['dockerfile'])
+    # print(mat)
+
+
+# print(match)
+# if match:
+#     print(match.group())
+# print(y['reids'])
+# local(y['dev']['redis'])
+# print(y['sdfsdfs'])
+
+# s = f.read()
+# FABENV = json.loads(s)
+# f.close()
 
 
 def all_project():

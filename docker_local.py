@@ -9,6 +9,7 @@ from settings import all_project
 import time
 
 client = docker.from_env()
+# api 出现很大的问题, 改用命令行
 
 
 @task
@@ -32,10 +33,13 @@ def start_redis(port, network='', version=''):
     print(green('start redis ...'))
     if not network:
         with show('stdout', 'stderr', 'debug'):
-            container = client.containers.run(containers['redis'], detach=True, environment=env, ports=ports)
-        if not container.name:
-            print(red('start redis faild!'))
-            return
+            cmd = 'docker run -d -ti -e REDIS_PASS=wothing -e REDIS_DIR=/data -p 127.0.0.1:80:8080 %s' \
+                         % containers['redis']
+            local(cmd)
+            # container = client.containers.run(containers['redis'], detach=True, environment=env, ports=ports)
+        # if not container.name:
+        #     print(red('start redis faild!'))
+        #     return
         print(green('redis complete!'))
         return 'new'
     else:
@@ -46,11 +50,14 @@ def start_redis(port, network='', version=''):
         with show('stdout', 'stderr', 'debug'):
             networks = [FABENV['bridge']]
             name = 'redis_' + version
-            container = client.containers.run(containers['redis'], detach=True, environment=env, ports=ports, name=name,
-                                              networks=networks)
-        if not container.name:
-            print(red('start redis faild!'))
-            return
+            cmd = '''docker run -d -ti -e REDIS_PASS=wothing -e REDIS_DIR=/data \
+                  --net=test --name=%s %s''' % (name, containers['redis'])
+            local(cmd)
+            # container = client.containers.run(containers['redis'], detach=True, environment=env, ports=ports, name=name,
+            #                                   networks=networks)
+        # if not container.name:
+        #     print(red('start redis faild!'))
+        #     return
 
 
 @task
@@ -181,7 +188,7 @@ def start_all(port=False):
 @task
 def test(count=10):
 
-    c = client.containers.run(containers['redis'], detach=True, networks=['ci'], network_mode='bridge')
+    c = client.containers.run(containers['redis'], detach=True, networks=['test'], network_mode='bridge')
 
     # nl = client.networks.list(names='test')
     # for n in nl:

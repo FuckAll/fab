@@ -2,6 +2,7 @@ from fabric.api import env, task, output
 import site_config
 from develop import *
 from production import *
+from settings import *
 from docker_local import *
 from settings import BASE_PREPARE_DIR, LOG_DIR, BASE_PROD_DIR
 
