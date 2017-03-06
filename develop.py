@@ -1,7 +1,6 @@
-from fabric.api import task, hosts, run, cd, lcd, hide, local
-from site_config import ROLEDEFS
-from settings import BASE_PREPARE_DIR, MEI_OPS, FABENV
-from os import listdir, walk, system
+from fabric.api import task, lcd, hide, local
+from settings import yamlconfig
+from os import listdir, walk
 from os.path import isfile, join, isdir
 from fabric.colors import red, green
 from hashlib import md5
@@ -10,34 +9,14 @@ from docker_local import start_pgsql, start_etcd, start_redis
 import asyncio
 import asyncpg
 import etcd
+import socket
 
 
 @task
-@hosts(ROLEDEFS['dev'])
-def dev_nginx():
-    git_pull()
-
-
-# git_pull nginx
-def git_pull():
-    code_dir = join(BASE_PREPARE_DIR + '17mei-ops')
-    if run("test -d %s" % code_dir).failed:
-        run("git clone %s" % MEI_OPS)
-    with cd(code_dir):
-        run('git pull')
-        run("git log -1 |grep commit|awk '{print $2}' > .revision")
-
-
-# restart nginx
-def restart_nginx():
-    run('/usr/sbin/nginx -c /etc/nginx/nginx.conf')
-
-
-@task
-def init_postgresql():
-    """ [local] 初始化本地数据库（导入表等）"""
+def develop_init_postgresql():
+    """ [develop] 初始化本地数据库（导入表等）"""
     pg_extension()
-    with lcd(join(FABENV['project'], 'sql')):
+    with lcd(join(yamlconfig['project_path'], 'sql')):
         with hide('running'):
             path = local('pwd', capture=True)
             for root, dirs, filenames in walk(path):
@@ -56,9 +35,8 @@ def init_postgresql():
                         loop.run_until_complete(run())
 
 
-@task
 def pg_extension():
-    """ [local] 添加数据库扩展"""
+    """ [develop] 添加数据库扩展"""
     extensions = ['CREATE EXTENSION IF NOT EXISTS "pgcrypto"']
 
     async def run():
@@ -73,14 +51,14 @@ def pg_extension():
 
 
 @task
-def init_etcd():
-    """ [local] 初始化etcd keys"""
+def develop_init_etcd():
+    """ [develop] 初始化etcd keys"""
     client = etcd.Client(host='127.0.0.1', port=2379)
     keys = {'/butler/pgsql/host': '127.0.0.1',
             '/butler/pgsql/port': '5432',
             '/butler/pgsql/name': 'butler',
             '/butler/pgsql/user': 'postgres',
-            '/butler/pgsql/password': 'wothing',
+            '/butler/pgsql/password': '',
             '/butler/redis/host': '127.0.0.1',
             '/butler/redis/port': '6379',
             '/butler/redis/password': 'wothing',
@@ -97,18 +75,12 @@ def init_etcd():
 
 
 @task
-def get_key():
-    client = etcd.Client(host='127.0.0.1', port=2379)
-    print(client.read('/butler/pgsql/host').value)
-
-
-@task
 def start_all_micro():
-    """ [local] 启动所有的微服务"""
-
-    with lcd(FABENV['project']):
-        onlydir = [f for f in listdir(FABENV['project']) if isdir(join(FABENV['project'], f)) and f not in
-                   FABENV['exclude']]
+    """ [develop] 启动所有的微服务"""
+    with lcd(yamlconfig['project_path']):
+        onlydir = [f for f in listdir(yamlconfig['project_path']) if
+                   isdir(join(yamlconfig['project_path'], f)) and f not in
+                   yamlconfig['dev']['build_exclude']]
         for d in onlydir:
             if d == 'gateway':
                 build_gateway()
@@ -119,7 +91,7 @@ def start_all_micro():
 
 @task
 def stop_all_micro():
-    """ [local] 停止所有的微服务"""
+    """ [develop] 停止所有的微服务"""
     print(green('stop all micro service ...'))
     with hide('running'):
         local("ps -ef | grep build/ | grep -v grep  | awk '{print $2}' | xargs kill -9", capture=True)
@@ -127,17 +99,18 @@ def stop_all_micro():
 
 @task
 def force_rebuild_micro():
+    """[develop] 强制重新build并且启动"""
     with hide('running'):
-        with lcd(FABENV['project']):
+        with lcd(yamlconfig['project_path']):
             local('rm -rf ./build')
         start_all_micro()
 
 
 @task
 def build_gateway():
-    """ [local] 构建并且重启gateway"""
+    """ [develop] 构建并且重启gateway"""
     with hide('running'):
-        with lcd(FABENV['project']):
+        with lcd(yamlconfig['project_path']):
             local('if [[ ! -d build ]]; then mkdir ./build; fi')
             local('if [[ ! -d logs ]]; then mkdir ./logs; fi')
 
@@ -145,10 +118,10 @@ def build_gateway():
             if c:
                 # build
                 print(green('build && restart appway and interway micro service...'))
-                with lcd(join(FABENV['project'], 'gateway/appway')):
-                    local('go build -v -i -o %s' % join(FABENV['project'], 'build', 'appway'))
-                with lcd(join(FABENV['project'], 'gateway/interway')):
-                    local('go build -v -i -o %s' % join(FABENV['project'], 'build', 'interway'))
+                with lcd(join(yamlconfig['project_path'], 'gateway/appway')):
+                    local('go build -v -i -o %s' % join(yamlconfig['project_path'], 'build', 'appway'))
+                with lcd(join(yamlconfig['project_path'], 'gateway/interway')):
+                    local('go build -v -i -o %s' % join(yamlconfig['project_path'], 'build', 'interway'))
 
                 # restart
                 micro_restart('appway')
@@ -165,9 +138,9 @@ def build_gateway():
 
 
 def build(micro='mall'):
-    """ [local] 构建并且重启micro example: fab build:mall"""
+    """ [develop] 构建并且重启micro example: fab build:mall"""
     with hide('running'):
-        with lcd(FABENV['project']):
+        with lcd(yamlconfig['project_path']):
             local('if [[ ! -d build ]]; then mkdir ./build; fi')
             local('if [[ ! -d logs ]]; then mkdir ./logs; fi')
 
@@ -178,8 +151,8 @@ def build(micro='mall'):
         c = dir_change(micro)
         if c:
             print(green('build and restart %s micro service...' % micro))
-            with lcd(join(FABENV['project'], micro)):
-                local('go build -v -i -o %s' % join(FABENV['project'], 'build', micro))
+            with lcd(join(yamlconfig['project_path'], micro)):
+                local('go build -v -i -o %s' % join(yamlconfig['project_path'], 'build', micro))
             micro_restart(micro)
 
         # check
@@ -189,22 +162,22 @@ def build(micro='mall'):
 
 
 def micro_restart(micro='mall'):
-    """ [local] 重启micro example: fab micro_restart:mall"""
+    """ [develop] 重启micro example: fab micro_restart:mall"""
     with hide('running'):
         local("ps -ef | grep build/%s | grep -v grep  | awk '{print $2}' | xargs kill -9" % micro, capture=True)
-        with lcd(FABENV['project']):
+        with lcd(yamlconfig['project_path']):
             local('nohup build/%s >> logs/debug.log 2>&1 &' % micro)
 
 
 def micro_start(micro='mall'):
-    """ [local] 启动micro example: fab micro_start:mall"""
+    """ [develop] 启动micro example: fab micro_start:mall"""
     with hide('running'):
-        with lcd(FABENV['project']):
+        with lcd(yamlconfig['project_path']):
             local('nohup build/%s >> logs/debug.log 2>&1 &' % micro)
 
 
 def micro_status(micro='mall', p=True):
-    """ [local] 查看micro运行状态 example: fab micro_status:mall"""
+    """ [develop] 查看micro运行状态 example: fab micro_status:mall"""
     with hide('running'):
         r = local("ps -ef | grep build/%s | grep -v grep  | awk '{print $2}'" % micro, capture=True)
         if r:
@@ -218,9 +191,9 @@ def micro_status(micro='mall', p=True):
 
 
 def dir_change(micro='mall'):
-    with lcd(FABENV['project']):
-        md5file = join(FABENV['project'], 'build/%s.md5' % micro)
-        microdir = join(FABENV['project'], micro)
+    with lcd(yamlconfig['project_path']):
+        md5file = join(yamlconfig['project_path'], 'build/%s.md5' % micro)
+        microdir = join(yamlconfig['project_path'], micro)
 
         if isfile(md5file):
             f = open(md5file, 'r')
@@ -263,19 +236,75 @@ def md5forfile(file):
 
 
 @task
+def develop_postgresql():
+    cmd = yamlconfig['dev']['postgresql']['cmd']
+    with hide('running'):
+        local(cmd)
+
+    if ('init' in yamlconfig['dev']['postgresql']) and yamlconfig['dev']['postgresql']['init']:
+        with hide('running'):
+            local(yamlconfig['dev']['postgresql']['init'])
+
+
+@task
+def develop_etcd():
+    cmd = yamlconfig['dev']['etcd']['cmd']
+    with hide('running'):
+        local(cmd)
+
+    if ('init' in yamlconfig['dev']['etcd']) and yamlconfig['dev']['etcd']['init']:
+        with hide('running'):
+            local(yamlconfig['dev']['etcd']['init'])
+
+
+@task
+def develop_redis():
+    cmd = yamlconfig['dev']['redis']['cmd']
+    with hide('running'):
+        local(cmd)
+
+    if ('init' in yamlconfig['dev']['redis']) and yamlconfig['dev']['redis']['init']:
+        with hide('running'):
+            local(yamlconfig['dev']['redis']['init'])
+
+
+@task
+def is_open(port, ip='127.0.0.1', p=True):
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        s.connect((ip, int(port)))
+        s.shutdown(2)
+        if p:
+            print('%s is open' % port)
+        return True
+    except:
+        if p:
+            print('%s is down' % port)
+        return False
+
+
+@task
 def start_workspace():
-    # 1. 启动数据库
-    if start_pgsql(port=True) == 'new':
-        sleep(10)
-        init_postgresql()
+    if is_open(5432, ip='127.0.0.1', p=False):
+        local('docker stop develop_postgresql')
+        local('docker rm develop_postgresql')
+        develop_postgresql()
+    else:
+        develop_postgresql()
 
-    # 2. 启动etcd
-    if start_etcd(port=True) == 'new':
-        sleep(3)
-        init_etcd()
+    if is_open(6379, ip='127.0.0.1', p=False):
+        local('docker stop develop_redis')
+        local('docker rm develop_redis')
+        develop_redis()
+    else:
+        develop_redis()
 
-    # 3. 启动redis
-    start_redis(port=True)
+    if is_open(2379, ip='127.0.0.1', p=False):
+        local('docker stop develop_etcd')
+        local('docker rm develop_etcd')
+        develop_etcd()
+    else:
+        develop_etcd()
 
     # 4. 启动业务
     start_all_micro()
@@ -304,6 +333,6 @@ def iterm_applescript():
             -e 'end tell' \
             -e 'end if' \
             -e 'end tell' \
-        """ % join(FABENV['project'], 'logs', 'debug.log')
+        """ % join(yamlconfig['project_path'], 'logs', 'debug.log')
     with hide('running'):
         local(cmd)

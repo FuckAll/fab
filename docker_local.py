@@ -1,14 +1,16 @@
 import docker
-from fabric.api import task, show, local, lcd
+from fabric.api import task, show, local, lcd, hide
 from fabric.colors import red, green
 from settings import containers, FABENV
 from fabric.contrib.console import confirm
 import socket
 from os.path import join
-from settings import all_project
+from settings import all_project, yamlconfig
 import time
 
 client = docker.from_env()
+
+
 # api 出现很大的问题, 改用命令行
 
 
@@ -34,7 +36,7 @@ def start_redis(port, network='', version=''):
     if not network:
         with show('stdout', 'stderr', 'debug'):
             cmd = 'docker run -d -ti -e REDIS_PASS=wothing -e REDIS_DIR=/data -p 127.0.0.1:80:8080 %s' \
-                         % containers['redis']
+                  % containers['redis']
             local(cmd)
             # container = client.containers.run(containers['redis'], detach=True, environment=env, ports=ports)
         # if not container.name:
@@ -55,9 +57,9 @@ def start_redis(port, network='', version=''):
             local(cmd)
             # container = client.containers.run(containers['redis'], detach=True, environment=env, ports=ports, name=name,
             #                                   networks=networks)
-        # if not container.name:
-        #     print(red('start redis faild!'))
-        #     return
+            # if not container.name:
+            #     print(red('start redis faild!'))
+            #     return
 
 
 @task
@@ -187,7 +189,6 @@ def start_all(port=False):
 
 @task
 def test(count=10):
-
     c = client.containers.run(containers['redis'], detach=True, networks=['test'], network_mode='bridge')
 
     # nl = client.networks.list(names='test')
@@ -343,22 +344,61 @@ def clean_docker_version(version):
 def postgresql_init(version):
     """[local] 初始化postgresql"""
     # init file
-    f = open(join(FABENV['project'], 'linux_build', 'init_postgresql.sh'), 'w')
-    cmd = '`which psql` -h postgresql_' + version + ' -p 5432' + ' -U postgres' + ' -d ' + FABENV['project_name']
-    cat = '''#!/bin/sh
+    f = open(join(yamlconfig['env']['project_path'], yamlconfig['prod']['build_path'], 'init_postgresql.sh'), 'w')
+    psql = '`which psql` -h postgresql_' + version + ' -p 5432' + ' -U postgres' + ' -d ' + yamlconfig['env'][
+        'project_name']
+    exten_sql = '`which psql` -h postgresql_' + version + ' -p 5432' + ' -U postgres' + ' -d ' + yamlconfig['env'][
+        'project_name'] + ' -c "CREATE EXTENSION IF NOT EXISTS "pgcrypto""'
+
+    contant = '''#!/bin/sh
+%s
 all=`find sql -type f -iname "*.sql" | sort -t "/" -k 2,2`
 for a in $all
 do
 %s -f $a
 done
-''' % cmd
-    f.write(cat)
+''' % (exten_sql, psql)
+    f.write(contant)
     f.close()
 
-    # docker
-    networks = [FABENV['bridge']]
-    command = "sh init_postgresql.sh"
-    volumes = {FABENV['sql_dir']: {'bind': '/sql', 'mode': 'rw'},
-               join(FABENV['project'], 'linux_build', 'init_postgresql.sh'):
-                   {'bind': '/init_postgresql.sh', 'mode': 'ro'}}
-    container = client.containers.run(containers['postgres'], volumes=volumes, networks=networks)
+    cmd = ''' docker run --rm -ti --net={network_bridge} \
+     -v {sql_dir}:/sql/ \
+     -v {project_path}/{build_path}/init_postgresql.sh:/init_postgresql.sh \
+     daocloud.io/izgnod/postgres:latest sh init_postgresql.sh'''
+
+    cmd = cmd.format(sql_dir=yamlconfig['env']['sql_dir'], build_path=yamlconfig['prod']['build_path'],
+                     project_path=yamlconfig['env']['project_path'], network_bridge=yamlconfig['env']['network_bridge'])
+
+    with hide('running'):
+        local(cmd)
+
+
+@task
+def etcd_init(version):
+    """[local] 初始化 etcd"""
+    keys = {'/butler/pgsql/host': 'postgresql_' + version,
+            '/butler/pgsql/port': '5432',
+            '/butler/pgsql/name': 'butler',
+            '/butler/pgsql/user': 'postgres',
+            '/butler/pgsql/password': '\'\'',
+            '/butler/redis/host': 'redis_' + version,
+            '/butler/redis/port': '6379',
+            '/butler/redis/password': '\'\'',
+            '/butler/mediastore/mode': 'test',
+            '/butler/wechat/web/appid': 'wxc3a713d594283b00',
+            '/butler/wechat/web/appsecret': '66edd83a09789b1fb88535e3f14ae94c',
+            '/butler/wechat/web/consult_url': 'http://butler.17mei.top/wp/butler',
+            '/butler/wechat/web/auth_url': '\'https://open.weixin.qq.com/connect/oauth2/authorize?appid=%s&redirect_uri=%s&response_type=code&scope=snsapi_base&state=%s#wechat_redirect\''
+            }
+
+    for k in keys:
+        cmd = 'docker exec -ti etcd_{version} etcdctl set {k} {v}'
+        cmd = cmd.format(version=version, k=k, v=keys[k])
+        with hide('running', 'stdout'):
+            print(green('etcdctl set %s %s') % (k, keys[k]))
+            local(cmd)
+
+
+@task
+def nsq_init(version):
+    """[local] 初始化 nsq"""
