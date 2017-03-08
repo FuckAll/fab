@@ -4,15 +4,12 @@ from os import listdir, walk
 from os.path import isfile, join, isdir
 from fabric.colors import red, green
 from hashlib import md5
-from time import sleep
-from docker_local import start_pgsql, start_etcd, start_redis
 import asyncio
 import asyncpg
 import etcd
 import socket
 
 
-@task
 def develop_init_postgresql():
     """ [develop] 初始化本地数据库（导入表等）"""
     pg_extension()
@@ -50,7 +47,6 @@ def pg_extension():
     loop.run_until_complete(run())
 
 
-@task
 def develop_init_etcd():
     """ [develop] 初始化etcd keys"""
     client = etcd.Client(host='127.0.0.1', port=2379)
@@ -77,6 +73,7 @@ def develop_init_etcd():
 @task
 def start_all_micro():
     """ [develop] 启动所有的微服务"""
+    before_build()
     with lcd(yamlconfig['project_path']):
         onlydir = [f for f in listdir(yamlconfig['project_path']) if
                    isdir(join(yamlconfig['project_path'], f)) and f not in
@@ -89,7 +86,6 @@ def start_all_micro():
     iterm_applescript()
 
 
-@task
 def stop_all_micro():
     """ [develop] 停止所有的微服务"""
     print(green('stop all micro service ...'))
@@ -106,7 +102,6 @@ def force_rebuild_micro():
         start_all_micro()
 
 
-@task
 def build_gateway():
     """ [develop] 构建并且重启gateway"""
     with hide('running'):
@@ -235,7 +230,6 @@ def md5forfile(file):
     return m.hexdigest()
 
 
-@task
 def develop_postgresql():
     cmd = yamlconfig['dev']['postgresql']['cmd']
     with hide('running'):
@@ -246,7 +240,6 @@ def develop_postgresql():
             local(yamlconfig['dev']['postgresql']['init'])
 
 
-@task
 def develop_etcd():
     cmd = yamlconfig['dev']['etcd']['cmd']
     with hide('running'):
@@ -257,7 +250,6 @@ def develop_etcd():
             local(yamlconfig['dev']['etcd']['init'])
 
 
-@task
 def develop_redis():
     cmd = yamlconfig['dev']['redis']['cmd']
     with hide('running'):
@@ -268,7 +260,6 @@ def develop_redis():
             local(yamlconfig['dev']['redis']['init'])
 
 
-@task
 def is_open(port, ip='127.0.0.1', p=True):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
@@ -283,8 +274,15 @@ def is_open(port, ip='127.0.0.1', p=True):
         return False
 
 
+def before_build():
+    with lcd(yamlconfig['project_path']):
+        if 'before_build' in yamlconfig['dev'] and yamlconfig['dev']['before_build']:
+            local(yamlconfig['dev']['before_build'])
+
+
 @task
 def start_workspace():
+    """ [develop] 启动工作环境 example: fab start_workspace """
     if is_open(5432, ip='127.0.0.1', p=False):
         local('docker stop develop_postgresql')
         local('docker rm develop_postgresql')
@@ -313,7 +311,6 @@ def start_workspace():
     iterm_applescript()
 
 
-@task
 def iterm_applescript():
     cmd = """
     osascript \
@@ -334,5 +331,5 @@ def iterm_applescript():
             -e 'end if' \
             -e 'end tell' \
         """ % join(yamlconfig['project_path'], 'logs', 'debug.log')
-    with hide('running'):
+    with hide('running', 'stdout'):
         local(cmd)

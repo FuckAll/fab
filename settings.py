@@ -2,71 +2,37 @@
 import json
 from os.path import join
 from os import environ
-from fabric.api import lcd, task, local
-from os.path import isdir
-from os import listdir
+from fabric.api import task, abort
 import yaml
-import re
 
-# file need to create
-BASE_PROD_DIR = '/17mei/prod/'
-BASE_PREPARE_DIR = '/17mei/prepare/'
-LOG_DIR = 'log'
-# NGINX_CONF_DIR = 'conf/nginx/'
-# NGINX_CONF_PREPARE_DIR = os.path.join(BASE_PREPARE_DIR, NGINX_CONF_DIR)
-# NGINX_CONF_PROD_DIR = os.path.join(BASE_PROD_DIR, NGINX_CONF_DIR)
-
-# github repo
-MEI_OPS = "git@github.com:wothing/17mei-ops.git"
-FABENV = {}
-yamlconfig = {}
-
-# docker image
-containers = {
-    'redis': 'daocloud.io/izgnod/redis:latest',
-    'postgres': 'daocloud.io/izgnod/postgres:latest',
-    'etcd': 'daocloud.io/izgnod/etcd:latest'
-}
-
-# @task
-# def yaml_test():
-# # env
-# with lcd('~'):
-#
+yamlconfig = ''
 f = open(join(environ.get('HOME'), ".fab.yaml"), 'r')
 y = yaml.load(f)
 yamlconfig = y
-    # for service in yamlconfig['prod']['image']['build']['args']:
-    #     print(service)
-    # print(yamlconfig['prod']['image']['build']['cmd'])
-    # # pattern = re.compile(r'\{\{\w*\}\}')
-    # # match = pattern.match(yamlconfig['prod']['image']['dockerfile'][0])
-    # print(yamlconfig['prod']['image']['dockerfile']['cmd'])
-    # print(yamlconfig['env']['version'])
-    # print(yamlconfig['env']['services'])
 
-    # mat = re.match(r'&\w+', yamlconfig['prod']['image']['dockerfile'])
-    # print(mat)
+if 'project_name' not in yamlconfig:
+    abort('need project_name')
 
+if 'project_path' not in yamlconfig:
+    abort('need project_path')
 
-# print(match)
-# if match:
-#     print(match.group())
-# print(y['reids'])
-# local(y['dev']['redis'])
-# print(y['sdfsdfs'])
+if 'sql_dir' not in yamlconfig:
+    abort('need sql_dir')
 
-# s = f.read()
-# FABENV = json.loads(s)
-# f.close()
+if 'repo' not in yamlconfig:
+    abort('need repo')
 
+if 'version' not in yamlconfig:
+    abort('need version')
 
-def all_project():
-    onlydir = [f for f in listdir(FABENV['project']) if isdir(join(FABENV['project'], f)) and f not in
-               FABENV['exclude']]
+if 'dockerfile_extensions' not in yamlconfig:
+    abort('need dockerfile_extensions')
 
-    # remove gateway insert appway and interway
-    onlydir.remove('gateway')
-    onlydir.append('appway')
-    onlydir.append('interway')
-    return onlydir
+if 'network_bridge' not in yamlconfig:
+    abort('need network_bridge')
+
+if 'dev' not in yamlconfig:
+    abort('need dev')
+
+if 'prod' not in yamlconfig:
+    abort('need prod')
