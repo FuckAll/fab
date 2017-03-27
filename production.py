@@ -204,13 +204,12 @@ def prod_before_build():
 
 
 @task
-def all_one():
-    version = time.strftime(yamlconfig['version'], time.localtime(time.time()))
-    # start_etcd_test
-    # print(version)
-    # 测试用
-    # TODO 清空环境的问题
-    version = '03051307'
+def all_one(version):
+    """ [production] 编译，测试，提交"""
+    if not version:
+        version = time.strftime(yamlconfig['version'], time.localtime(time.time()))
+
+    # before build
     prod_before_build()
 
     # start base
@@ -237,3 +236,21 @@ def all_one():
 
     # stop
     prod_container_stop(version)
+
+    # push
+    prod_push_image(version)
+
+
+@task
+def replace_micro(version, micro):
+    if (not version) or (not micro):
+        abort('need version and network_bridge')
+
+    local('docker stop' + micro + "_" + version)
+    local('docker rm' + micro + "_" + version)
+
+    with hide('running'):
+        for cmd in yamlconfig['prod']['build']:
+            with lcd(yamlconfig['project_path']):
+                local(cmd)
+
