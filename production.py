@@ -210,6 +210,8 @@ def all_one(version=''):
     if not version:
         version = time.strftime(yamlconfig['version'], time.localtime(time.time()))
 
+    print(green('your version is %s !' % version))
+
     # before build
     print(green('make idl ....'))
     prod_before_build()
