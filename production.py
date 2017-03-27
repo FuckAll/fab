@@ -13,6 +13,7 @@ COPY %s /%s
 CMD exec /%s -etcd $ETCD -h $HOSTNAME -p $P
 '''
 
+
 @task
 def create_micro_dockerfile(*args):
     for a in args:
@@ -21,60 +22,61 @@ def create_micro_dockerfile(*args):
                 content = gateway_dockerfile % (a, a, a)
             else:
                 content = dockerfile % (a, a, a)
-            dfile = join(yamlconfig['env']['project_path'], yamlconfig['prod']['build_path'],
-                         a + yamlconfig['prod']['image']['extensions'])
+            dfile = join(yamlconfig['project_path'], yamlconfig['prod']['build_path'],
+                         a + yamlconfig['dockerfile_extensions'])
             f = open(dfile, 'w')
             f.write(content)
             f.close()
 
 
 @task
-def build_test():
+def prod_build():
     with hide('running'):
         for cmd in yamlconfig['prod']['build']:
-            with lcd(yamlconfig['env']['project_path']):
+            with lcd(yamlconfig['project_path']):
                 local(cmd)
 
 
 @task
-def dockerfile_test():
+def prod_dockerfile():
     with hide('running'):
-        for cmd in yamlconfig['prod']['image']['dockerfile']:
+        for cmd in yamlconfig['prod']['image']['dockerfile']['cmd']:
             local(cmd)
 
 
 @task
-def build_image_test(version):
+def prod_build_image(version):
     for cmd in yamlconfig['prod']['image']['build']:
         if ('{repo}' in cmd) and ('{version}' in cmd) and ('{dockerfile_extensions}' in cmd):
-            cmd = cmd.format(repo=yamlconfig['env']['repo'],
+            cmd = cmd.format(repo=yamlconfig['repo'],
                              version=version,
-                             dockerfile_extensions=yamlconfig['env']['dockerfile_extensions'])
+                             dockerfile_extensions=yamlconfig['dockerfile_extensions'])
 
         else:
             abort('need {repo} {version} {dockerfile_extensions}')
             return
 
-        with lcd(join(yamlconfig['env']['project_path'], yamlconfig['prod']['build_path'])):
+        with lcd(join(yamlconfig['project_path'], yamlconfig['prod']['build_path'])):
             local(cmd)
 
 
 @task
-def remove_image_test(version):
+def prod_remove_image(version):
     for cmd in yamlconfig['prod']['image']['remove']:
         if '{version}' in cmd:
-            cmd = cmd.format(version=version)
+            cmd = cmd.format(version=version, print='{print $3}')
         else:
             abort('need {version}')
         with hide('running'):
+            # print(cmd)
             local(cmd)
 
 
 @task
-def push_image_test(version):
+def prod_push_image(version):
     for cmd in yamlconfig['prod']['image']['push']:
         if ('{version}' in cmd) and ('{repo}' in cmd):
-            cmd = cmd.format(repo=yamlconfig['env']['repo'],
+            cmd = cmd.format(repo=yamlconfig['repo'],
                              version=version)
             print(cmd)
         else:
@@ -84,23 +86,22 @@ def push_image_test(version):
 
 
 @task
-def container_run_test(version):
+def prod_container_run(version):
     for cmd in yamlconfig['prod']['container']['run']['cmd']:
         if ('{network_bridge}' in cmd) and ('{version}' in cmd) and ('{repo}' in cmd):
-            cmd = cmd.format(repo=yamlconfig['env']['repo'],
+            cmd = cmd.format(repo=yamlconfig['repo'],
                              version=version,
-                             network_bridge=yamlconfig['env']['network_bridge'])
+                             network_bridge=yamlconfig['network_bridge'])
         else:
             abort('need {repo} {version} {network_bridge}')
         local(cmd)
 
 
 @task
-def container_stop_test(version):
+def prod_container_stop(version):
     for cmd in yamlconfig['prod']['container']['stop']['cmd']:
         if '{version}' in cmd:
             cmd = cmd.format(version=version)
-            # print(cmd)
         else:
             abort('need {version}')
         with hide('running'):
@@ -108,10 +109,10 @@ def container_stop_test(version):
 
 
 @task
-def start_postgresql_test(version):
+def prod_start_postgresql(version):
     cmd = yamlconfig['prod']['postgresql']['cmd']
     if ('{network_bridge}' in cmd) and ('{version}' in cmd):
-        cmd = cmd.format(version=version, network_bridge=yamlconfig['env']['network_bridge'])
+        cmd = cmd.format(version=version, network_bridge=yamlconfig['network_bridge'])
     else:
         abort('need {version} {network_bridge}')
     with hide('running'):
@@ -124,10 +125,10 @@ def start_postgresql_test(version):
 
 
 @task
-def start_redis_test(version):
+def prod_start_redis(version):
     cmd = yamlconfig['prod']['redis']['cmd']
     if ('{network_bridge}' in cmd) and ('{version}' in cmd):
-        cmd = cmd.format(version=version, network_bridge=yamlconfig['env']['network_bridge'])
+        cmd = cmd.format(version=version, network_bridge=yamlconfig['network_bridge'])
     else:
         abort('need {version} {network_bridge}')
     with hide('running'):
@@ -138,10 +139,10 @@ def start_redis_test(version):
 
 
 @task
-def start_etcd_test(version):
+def prod_start_etcd(version):
     cmd = yamlconfig['prod']['etcd']['cmd']
     if ('{network_bridge}' in cmd) and ('{version}' in cmd):
-        cmd = cmd.format(version=version, network_bridge=yamlconfig['env']['network_bridge'])
+        cmd = cmd.format(version=version, network_bridge=yamlconfig['network_bridge'])
     else:
         abort('need {version} {network_bridge}')
     with hide('running'):
@@ -152,36 +153,87 @@ def start_etcd_test(version):
 
 
 @task
-def start_base_test(version):
-    start_postgresql_test(version)
-    start_etcd_test(version)
-    start_redis_test(version)
+def prod_start_nsq(version):
+    # nsqd
+    cmd = yamlconfig['prod']['nsqd']['cmd']
+    if ('{version}' in cmd) and ('{network_bridge}' in cmd):
+        cmd = cmd.format(version=version, network_bridge=yamlconfig['network_bridge'])
+    else:
+        abort('need {version} {network_bridge}')
+
+    with hide('running'):
+        local(cmd)
+
+    if ('init' in yamlconfig['prod']['nsqd']) and yamlconfig['prod']['nsqd']['init']:
+        local((yamlconfig['prod']['nsqd']['init']).format(version=version))
+
+    # nsql
+    cmd = yamlconfig['prod']['nsql']['cmd']
+    if ('{version}' in cmd) and ('{network_bridge}' in cmd):
+        cmd = cmd.format(version=version, network_bridge=yamlconfig['network_bridge'])
+    else:
+        abort('need {version} {network_bridge}')
+
+    with hide('running'):
+        local(cmd)
+
+    if ('init' in yamlconfig['prod']['nsql']) and yamlconfig['prod']['nsql']['init']:
+        local((yamlconfig['prod']['nsql']['init']).format(version=version))
 
 
 @task
-def test_test(version):
-    with lcd(yamlconfig['env']['project_path']):
+def prod_test(version):
+    with lcd(yamlconfig['project_path']):
         for cmd in yamlconfig['prod']['test']['cmd']:
             if ('{project_path}' in cmd) and ('{build_path}' in cmd) and ('{version}' not in cmd):
-                cmd = cmd.format(project_path=yamlconfig['env']['project_path'],
+                cmd = cmd.format(project_path=yamlconfig['project_path'],
                                  build_path=yamlconfig['prod']['build_path'])
                 local(cmd)
             if ('{project_path}' in cmd) and ('{build_path}' in cmd) and ('{version}' in cmd) and (
                         '{network_bridge}' in cmd):
-                cmd = cmd.format(project_path=yamlconfig['env']['project_path'],
+                cmd = cmd.format(project_path=yamlconfig['project_path'],
                                  build_path=yamlconfig['prod']['build_path'], version=version,
-                                 network_bridge=yamlconfig['env']['network_bridge'])
+                                 network_bridge=yamlconfig['network_bridge'])
                 local(cmd)
+
+
+def prod_before_build():
+    with lcd(yamlconfig['project_path']):
+        if 'before_build' in yamlconfig['prod'] and yamlconfig['prod']['before_build']:
+            local(yamlconfig['prod']['before_build'])
 
 
 @task
 def all_one():
-    version = time.strftime(yamlconfig['env']['version'], time.localtime(time.time()))
+    version = time.strftime(yamlconfig['version'], time.localtime(time.time()))
     # start_etcd_test
     # print(version)
     # 测试用
     # TODO 清空环境的问题
     version = '03051307'
-    start_base_test(version)
-    container_run_test(version)
-    test_test(version=version)
+    prod_before_build()
+
+    # start base
+    prod_start_postgresql(version)
+    prod_start_nsq(version)
+    prod_start_redis(version)
+    prod_start_etcd(version)
+
+    # build image and run
+    # docker file
+    prod_dockerfile()
+
+    # docker build
+    prod_build()
+
+    # docker image
+    prod_build_image(version)
+
+    # docker run
+    prod_container_run(version)
+
+    # test
+    prod_test(version)
+
+    # stop
+    prod_container_stop(version)

@@ -19,20 +19,22 @@ def clean_docker_version(version):
     if not version:
         print(green('need version'))
         return
-    try:
-        local("docker stop $(docker ps -a  | grep '%s' | awk '{print $1}')" % version)
-    except:
-        local("docker rmi -f $(docker images -a | grep '%s' | awk '{print $3}')" % version)
+    # try:
+    local("docker stop $(docker ps -a  | grep '%s' | awk '{print $1}')" % version)
+    local("docker rm -f $(docker ps -a | grep '%s' | awk '{print $1}')" % version)
+    local("docker rmi -f $(docker images -a | grep '%s' | awk '{print $3}')" % version)
+    # except:
+    #     local("docker rmi -f $(docker images -a | grep '%s' | awk '{print $3}')" % version)
 
 
 @task
 def postgresql_init(version):
     """[local] 初始化postgresql"""
     # init file
-    f = open(join(yamlconfig['env']['project_path'], yamlconfig['prod']['build_path'], 'init_postgresql.sh'), 'w')
-    psql = '`which psql` -h postgresql_' + version + ' -p 5432' + ' -U postgres' + ' -d ' + yamlconfig['env'][
+    f = open(join(yamlconfig['project_path'], yamlconfig['prod']['build_path'], 'init_postgresql.sh'), 'w')
+    psql = '`which psql` -h postgresql_' + version + ' -p 5432' + ' -U postgres' + ' -d ' + yamlconfig[
         'project_name']
-    exten_sql = '`which psql` -h postgresql_' + version + ' -p 5432' + ' -U postgres' + ' -d ' + yamlconfig['env'][
+    exten_sql = '`which psql` -h postgresql_' + version + ' -p 5432' + ' -U postgres' + ' -d ' + yamlconfig[
         'project_name'] + ' -c "CREATE EXTENSION IF NOT EXISTS "pgcrypto""'
 
     contant = '''#!/bin/sh
@@ -51,8 +53,8 @@ done
      -v {project_path}/{build_path}/init_postgresql.sh:/init_postgresql.sh \
      daocloud.io/izgnod/postgres:latest sh init_postgresql.sh'''
 
-    cmd = cmd.format(sql_dir=yamlconfig['env']['sql_dir'], build_path=yamlconfig['prod']['build_path'],
-                     project_path=yamlconfig['env']['project_path'], network_bridge=yamlconfig['env']['network_bridge'])
+    cmd = cmd.format(sql_dir=yamlconfig['sql_dir'], build_path=yamlconfig['prod']['build_path'],
+                     project_path=yamlconfig['project_path'], network_bridge=yamlconfig['network_bridge'])
 
     with hide('running'):
         local(cmd)
@@ -68,7 +70,11 @@ def etcd_init(version):
             '/butler/pgsql/password': '\'\'',
             '/butler/redis/host': 'redis_' + version,
             '/butler/redis/port': '6379',
-            '/butler/redis/password': '\'\'',
+            '/butler/redis/password': 'wothing',
+            '/butler/nsqd/host': 'nsqd_' + version,
+            '/butler/nsqd/port': '4150',
+            '/butler/nsql/host': 'nsql_' + version,
+            '/butler/nsql/port': '4161',
             '/butler/mediastore/mode': 'test',
             '/butler/wechat/web/appid': 'wxc3a713d594283b00',
             '/butler/wechat/web/appsecret': '66edd83a09789b1fb88535e3f14ae94c',

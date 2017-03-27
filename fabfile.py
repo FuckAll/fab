@@ -2,14 +2,10 @@ from fabric.api import env
 import site_config
 
 from develop import *
-import production
+from production import *
 from settings import *
+from docker_local import *
 
-
-
-# from settings import *
-# from docker_local import *
-# from settings import *
 
 # ssh config
 env.use_ssh_config = True

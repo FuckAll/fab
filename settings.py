@@ -2,8 +2,9 @@
 import json
 from os.path import join
 from os import environ
-from fabric.api import task, abort
+from fabric.api import abort, lcd, local, hide
 import yaml
+from fabric.contrib.files import exists
 
 yamlconfig = ''
 f = open(join(environ.get('HOME'), ".fab.yaml"), 'r')
@@ -33,6 +34,22 @@ if 'network_bridge' not in yamlconfig:
 
 if 'dev' not in yamlconfig:
     abort('need dev')
+else:
+    if 'build_path' not in yamlconfig['dev']:
+        abort('prod need build_path')
+    else:
+        with hide('running'):
+            with lcd(yamlconfig['project_path']):
+                path = join(yamlconfig['project_path'], yamlconfig['dev']['build_path'])
+                local('if [[ ! -d %s ]]; then mkdir ./%s; fi' % (path, yamlconfig['dev']['build_path']))
 
 if 'prod' not in yamlconfig:
     abort('need prod')
+else:
+    if 'build_path' not in yamlconfig['prod']:
+        abort('prod need build_path')
+    else:
+        with hide('running'):
+            with lcd(yamlconfig['project_path']):
+                path = join(yamlconfig['project_path'], yamlconfig['prod']['build_path'])
+                local('if [[ ! -d %s ]]; then mkdir ./%s; fi' % (path, yamlconfig['prod']['build_path']))

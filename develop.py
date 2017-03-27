@@ -10,6 +10,7 @@ import etcd
 import socket
 
 
+@task
 def develop_init_postgresql():
     """ [develop] 初始化本地数据库（导入表等）"""
     pg_extension()
@@ -47,6 +48,7 @@ def pg_extension():
     loop.run_until_complete(run())
 
 
+@task
 def develop_init_etcd():
     """ [develop] 初始化etcd keys"""
     client = etcd.Client(host='127.0.0.1', port=2379)
@@ -83,14 +85,15 @@ def start_all_micro():
                 build_gateway()
             else:
                 build(d)
-    iterm_applescript()
+    # iterm_applescript()
 
 
 def stop_all_micro():
     """ [develop] 停止所有的微服务"""
     print(green('stop all micro service ...'))
     with hide('running'):
-        local("ps -ef | grep build/ | grep -v grep  | awk '{print $2}' | xargs kill -9", capture=True)
+        # local("ps -ef | grep build/ | grep -v grep  | awk '{print $2}' | xargs kill -9", capture=True)
+        local("ps -ef | grep build/ | grep -v grep  | awk '{print $2}' | xargs kill", capture=True)
 
 
 @task
@@ -260,6 +263,25 @@ def develop_redis():
             local(yamlconfig['dev']['redis']['init'])
 
 
+@task
+def develop_nsq():
+    cmd = yamlconfig['dev']['nsqd']['cmd']
+    with hide('running'):
+        local(cmd)
+
+    if ('init' in yamlconfig['dev']['nsqd']) and yamlconfig['dev']['nsqd']['init']:
+        with hide('running'):
+            local(yamlconfig['dev']['nsqd']['init'])
+
+    cmd = yamlconfig['dev']['nsql']['cmd']
+    with hide('running'):
+        local(cmd)
+
+    if ('init' in yamlconfig['dev']['nsql']) and yamlconfig['dev']['nsql']['init']:
+        with hide('running'):
+            local(yamlconfig['dev']['nsql']['init'])
+
+
 def is_open(port, ip='127.0.0.1', p=True):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
@@ -304,11 +326,20 @@ def start_workspace():
     else:
         develop_etcd()
 
+    if is_open(4150, ip='127.0.0.1', p=False):
+        local('docker stop develop_nsqd')
+        local('docker stop develop_nsql')
+        local('docker rm develop_nsqd')
+        local('docker rm develop_nsql')
+        develop_nsq()
+    else:
+        develop_nsq()
+
     # 4. 启动业务
     start_all_micro()
 
     # 5. iterm
-    iterm_applescript()
+    # iterm_applescript()
 
 
 def iterm_applescript():
@@ -333,3 +364,8 @@ def iterm_applescript():
         """ % join(yamlconfig['project_path'], 'logs', 'debug.log')
     with hide('running', 'stdout'):
         local(cmd)
+
+
+@task
+def teststst():
+    pass
