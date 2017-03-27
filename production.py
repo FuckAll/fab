@@ -213,7 +213,7 @@ def all_one(version=''):
     print(green('your version is %s !' % version))
 
     # before build
-    print(green('make idl ....'))
+    print(green('git pull && make idl ....'))
     prod_before_build()
 
     # start base
