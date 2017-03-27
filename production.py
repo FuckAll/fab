@@ -204,7 +204,7 @@ def prod_before_build():
 
 
 @task
-def all_one(version):
+def all_one(version=''):
     """ [production] 编译，测试，提交"""
     if not version:
         version = time.strftime(yamlconfig['version'], time.localtime(time.time()))
