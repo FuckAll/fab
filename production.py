@@ -15,7 +15,6 @@ CMD exec /%s -etcd $ETCD -h $HOSTNAME -p $P
 '''
 
 
-@task
 def create_micro_dockerfile(*args):
     for a in args:
         with hide('running', 'stdout'):
@@ -30,7 +29,6 @@ def create_micro_dockerfile(*args):
             f.close()
 
 
-@task
 def prod_build():
     with hide('running'):
         for cmd in yamlconfig['prod']['build']:
@@ -38,14 +36,12 @@ def prod_build():
                 local(cmd)
 
 
-@task
 def prod_dockerfile():
     with hide('running'):
         for cmd in yamlconfig['prod']['image']['dockerfile']['cmd']:
             local(cmd)
 
 
-@task
 def prod_build_image(version):
     for cmd in yamlconfig['prod']['image']['build']:
         if ('{repo}' in cmd) and ('{version}' in cmd) and ('{dockerfile_extensions}' in cmd):
@@ -63,6 +59,7 @@ def prod_build_image(version):
 
 @task
 def prod_remove_image(version):
+    """[production] 删除镜像 例如：fab prod_remove_image:03271807"""
     for cmd in yamlconfig['prod']['image']['remove']:
         if '{version}' in cmd:
             cmd = cmd.format(version=version, print='{print $3}')
@@ -75,6 +72,7 @@ def prod_remove_image(version):
 
 @task
 def prod_push_image(version):
+    """[production] Push Image To Aliyun 例如：fab prod_remove_image:03271807"""
     for cmd in yamlconfig['prod']['image']['push']:
         if ('{version}' in cmd) and ('{repo}' in cmd):
             cmd = cmd.format(repo=yamlconfig['repo'],
@@ -86,7 +84,6 @@ def prod_push_image(version):
             local(cmd)
 
 
-@task
 def prod_container_run(version):
     for cmd in yamlconfig['prod']['container']['run']['cmd']:
         if ('{network_bridge}' in cmd) and ('{version}' in cmd) and ('{repo}' in cmd):
@@ -98,7 +95,6 @@ def prod_container_run(version):
         local(cmd)
 
 
-@task
 def prod_container_stop(version):
     for cmd in yamlconfig['prod']['container']['stop']['cmd']:
         if '{version}' in cmd:
@@ -109,7 +105,6 @@ def prod_container_stop(version):
             local(cmd)
 
 
-@task
 def prod_start_postgresql(version):
     cmd = yamlconfig['prod']['postgresql']['cmd']
     if ('{network_bridge}' in cmd) and ('{version}' in cmd):
@@ -125,7 +120,6 @@ def prod_start_postgresql(version):
                 local((yamlconfig['prod']['postgresql']['init']).format(version=version))
 
 
-@task
 def prod_start_redis(version):
     cmd = yamlconfig['prod']['redis']['cmd']
     if ('{network_bridge}' in cmd) and ('{version}' in cmd):
@@ -139,7 +133,6 @@ def prod_start_redis(version):
         local(yamlconfig['prod']['postgresql']['init'])
 
 
-@task
 def prod_start_etcd(version):
     cmd = yamlconfig['prod']['etcd']['cmd']
     if ('{network_bridge}' in cmd) and ('{version}' in cmd):
@@ -153,7 +146,6 @@ def prod_start_etcd(version):
         local((yamlconfig['prod']['etcd']['init']).format(version=version))
 
 
-@task
 def prod_start_nsq(version):
     # nsqd
     cmd = yamlconfig['prod']['nsqd']['cmd']
@@ -184,6 +176,7 @@ def prod_start_nsq(version):
 
 @task
 def prod_test(version):
+    """[production] 测试 例如：fab prod_test:03271807"""
     with lcd(yamlconfig['project_path']):
         for cmd in yamlconfig['prod']['test']['cmd']:
             if ('{project_path}' in cmd) and ('{build_path}' in cmd) and ('{version}' not in cmd):
@@ -252,11 +245,10 @@ def all_one(version=''):
     prod_container_stop(version)
 
     # push
-    print(green('push image to aliyun ....'))
+    # print(green('push image to aliyun ....'))
     prod_push_image(version)
 
 
-@task
 def replace_micro(version, micro):
     if (not version) or (not micro):
         abort('need version and network_bridge')
