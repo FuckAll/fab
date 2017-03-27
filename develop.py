@@ -364,8 +364,3 @@ def iterm_applescript():
         """ % join(yamlconfig['project_path'], 'logs', 'debug.log')
     with hide('running', 'stdout'):
         local(cmd)
-
-
-@task
-def teststst():
-    pass
