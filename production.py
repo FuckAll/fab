@@ -15,6 +15,7 @@ CMD exec /%s -etcd $ETCD -h $HOSTNAME -p $P
 '''
 
 
+@task
 def create_micro_dockerfile(*args):
     for a in args:
         with hide('running', 'stdout'):
@@ -146,6 +147,7 @@ def prod_start_etcd(version):
         local((yamlconfig['prod']['etcd']['init']).format(version=version))
 
 
+@task
 def prod_start_nsq(version):
     # nsqd
     cmd = yamlconfig['prod']['nsqd']['cmd']
@@ -260,4 +262,3 @@ def replace_micro(version, micro):
         for cmd in yamlconfig['prod']['build']:
             with lcd(yamlconfig['project_path']):
                 local(cmd)
-

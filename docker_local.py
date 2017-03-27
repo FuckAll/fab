@@ -29,7 +29,7 @@ def clean_docker_version(version):
 
 @task
 def postgresql_init(version):
-    """[local] 初始化postgresql"""
+    """[production] 初始化postgresql"""
     # init file
     f = open(join(yamlconfig['project_path'], yamlconfig['prod']['build_path'], 'init_postgresql.sh'), 'w')
     psql = '`which psql` -h postgresql_' + version + ' -p 5432' + ' -U postgres' + ' -d ' + yamlconfig[
@@ -62,7 +62,7 @@ done
 
 @task
 def etcd_init(version):
-    """[local] 初始化 etcd"""
+    """[production] 初始化 etcd"""
     keys = {'/butler/pgsql/host': 'postgresql_' + version,
             '/butler/pgsql/port': '5432',
             '/butler/pgsql/name': 'butler',
