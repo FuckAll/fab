@@ -1,4 +1,5 @@
 from fabric.api import task, lcd, local, hide, abort
+from fabric.colors import green
 from settings import yamlconfig
 from os.path import join
 import time
@@ -210,34 +211,46 @@ def all_one(version=''):
         version = time.strftime(yamlconfig['version'], time.localtime(time.time()))
 
     # before build
+    print(green('make idl ....'))
     prod_before_build()
 
     # start base
+    print(green('start postgresql ....'))
     prod_start_postgresql(version)
+    print(green('start nsqd and nsqdl ....'))
     prod_start_nsq(version)
+    print(green('start redis ....'))
     prod_start_redis(version)
+    print(green('start etcd ....'))
     prod_start_etcd(version)
 
     # build image and run
     # docker file
+    print(green('create dockerfile ....'))
     prod_dockerfile()
 
     # docker build
+    print(green('start build micro ....'))
     prod_build()
 
     # docker image
+    print(green('start build imiage ....'))
     prod_build_image(version)
 
     # docker run
+    print(green('start container ....'))
     prod_container_run(version)
 
     # test
+    print(green('testing ....'))
     prod_test(version)
 
     # stop
+    print(green('stop all container....'))
     prod_container_stop(version)
 
     # push
+    print(green('push image to aliyun ....'))
     prod_push_image(version)
 
 
