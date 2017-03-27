@@ -15,7 +15,7 @@ def clean_container_force():
 
 @task
 def clean_docker_version(version):
-    """[local] 停止并删除指定版本的镜像 example: fab clean_docker_version:v1.1_03021630"""
+    """[production] 停止并删除指定版本的镜像 example: fab clean_docker_version:v1.1_03021630"""
     if not version:
         print(green('need version'))
         return

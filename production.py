@@ -248,7 +248,7 @@ def all_one(version=''):
 
     # push
     # print(green('push image to aliyun ....'))
-    prod_push_image(version)
+    # prod_push_image(version)
 
 
 def replace_micro(version, micro):
