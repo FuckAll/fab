@@ -86,11 +86,10 @@ def prod_push_image(version):
 
 
 @task
-def prod_push_image_one(*names, version=''):
-    if (len(names) < 1) or (not version):
+def prod_push_image_one(name='', version=''):
+    if (not name) or (not version):
         abort('need name and version')
-    for n in names:
-        local('docker push ' + yamlconfig['repo'] + n + ':' + version)
+    local('docker push ' + yamlconfig['repo'] + name + ':' + version)
 
 
 def prod_container_run(version):
