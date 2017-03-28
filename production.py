@@ -85,6 +85,14 @@ def prod_push_image(version):
             local(cmd)
 
 
+@task
+def prod_push_image_one(*names, version=''):
+    if (len(names) < 1) or (not version):
+        abort('need name and version')
+    for n in names:
+        local('docker push ' + yamlconfig['repo'] + n + ':' + version)
+
+
 def prod_container_run(version):
     for cmd in yamlconfig['prod']['container']['run']['cmd']:
         if ('{network_bridge}' in cmd) and ('{version}' in cmd) and ('{repo}' in cmd):
@@ -248,7 +256,7 @@ def all_one(version=''):
 
     # push
     # print(green('push image to aliyun ....'))
-    # prod_push_image(version)
+    prod_push_image(version)
 
 
 def replace_micro(version, micro):
