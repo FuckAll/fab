@@ -207,7 +207,7 @@ def prod_before_build():
 
 
 @task
-def all_one(version=''):
+def all_one(version='',push=''):
     """ [production] 编译，测试，提交"""
     if not version:
         version = time.strftime(yamlconfig['version'], time.localtime(time.time()))
@@ -254,8 +254,9 @@ def all_one(version=''):
     prod_container_stop(version)
 
     # push
-    # print(green('push image to aliyun ....'))
-    # prod_push_image(version)
+    if push:
+        print(green('push image to aliyun ....'))
+        prod_push_image(version)
 
 
 def replace_micro(version, micro):
