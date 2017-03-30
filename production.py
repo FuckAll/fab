@@ -11,6 +11,8 @@ CMD exec /%s -etcd $ETCD -h $HOSTNAME -p $P
 
 gateway_dockerfile = '''FROM daocloud.io/izgnod/alpine:latest
 COPY %s /%s
+COPY 17mei.crt /17mei.crt
+COPY 17mei.key /17mei.key
 CMD exec /%s -etcd $ETCD -h $HOSTNAME -p $P
 '''
 
