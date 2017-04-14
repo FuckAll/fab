@@ -73,9 +73,10 @@ def develop_init_etcd():
 
 
 @task
-def start_all_micro():
+def start_all_micro(force=''):
     """ [develop] 启动所有的微服务"""
-    before_build()
+    if not force:
+        before_build()
     with lcd(yamlconfig['project_path']):
         onlydir = [f for f in listdir(yamlconfig['project_path']) if
                    isdir(join(yamlconfig['project_path'], f)) and f not in
