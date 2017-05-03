@@ -4,12 +4,14 @@ from settings import yamlconfig
 from os.path import join
 import time
 
-dockerfile = '''FROM daocloud.io/izgnod/alpine:latest
+# daocloud.io/izgnod/alpine:latest
+
+dockerfile = '''FROM registry.cn-hangzhou.aliyuncs.com/butler/alpine:3.5
 COPY %s /%s
 CMD exec /%s -etcd $ETCD -h $HOSTNAME -p $P
 '''
 
-gateway_dockerfile = '''FROM daocloud.io/izgnod/alpine:latest
+gateway_dockerfile = '''FROM registry.cn-hangzhou.aliyuncs.com/butler/alpine:3.5
 COPY %s /%s
 COPY 17mei.crt /17mei.crt
 COPY 17mei.key /17mei.key
