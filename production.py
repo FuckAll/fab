@@ -18,7 +18,7 @@ COPY 17mei.key /17mei.key
 CMD exec /%s -etcd $ETCD -h $HOSTNAME -p $P
 '''
 
-wechat_dockerfile = '''FROM registry.cn-hangzhou.aliyuncs.com/butler/alpine:3.5
+paycenter_dockerfile = '''FROM registry.cn-hangzhou.aliyuncs.com/butler/alpine:3.5
 COPY %s /%s
 COPY wx_ca.pem /wx_ca.pem
 COPY wx_cert.p12 /wx_cert.p12
@@ -32,8 +32,8 @@ def create_micro_dockerfile(*args):
         with hide('running', 'stdout'):
             if a in ['appway', 'interway', 'liveway']:
                 content = gateway_dockerfile % (a, a, a)
-            elif a == "wechat":
-                content = wechat_dockerfile % (a, a, a)
+            elif a == "paycenter":
+                content = paycenter_dockerfile % (a, a, a)
             else:
                 content = dockerfile % (a, a, a)
             dfile = join(yamlconfig['project_path'], yamlconfig['prod']['build_path'],
