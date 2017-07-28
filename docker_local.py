@@ -79,6 +79,7 @@ def etcd_init(version):
             '/butler/wechat/web/appid': 'wxc3a713d594283b00',
             '/butler/wechat/web/appsecret': '66edd83a09789b1fb88535e3f14ae94c',
             '/butler/wechat/web/consult_url': 'http://butler.17mei.top/wp/butler',
+            '/butler/wechat/wx/mchid': '1407668702',
             '/butler/wechat/web/auth_url': '\'https://open.weixin.qq.com/connect/oauth2/authorize?appid=%s&redirect_uri=%s&response_type=code&scope=snsapi_base&state=%s#wechat_redirect\''
             }
 
